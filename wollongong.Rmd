@@ -1,0 +1,147 @@
+---
+title: "Wollongong Map"
+author: "Mitchell Stares"
+date: "5 February 2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Libraries
+
+```{R}
+library(osmdata)
+library(sf)
+library(tidyverse)
+library(leaflet)
+```
+
+# Data
+
+Read in geoscience australias boundary layer and limit to NSW
+```{r}
+nsw_coast <- st_read(dsn = "E:/Coding Tutorials-Learning/NSW_bushfire_mapping/vegetationnswextantnativevegetationv2",
+                     layer = "cstauscd_r")
+nsw_coast <- filter(nsw_coast, FEAT_CODE == "mainland" & STATE_CODE == 3) #filter the australian wide map to NSW
+```
+
+# OSM Queries
+
+```{r}
+# osmdata::available_features()
+# osmdata::available_tags("boundary")
+
+streets <- getbb("Wollongong Australia")%>%
+  opq()%>%
+  add_osm_feature(key = "highway", 
+                  value = c("motorway", "primary", 
+                            "secondary", "tertiary")) %>%
+  osmdata_sf()
+
+small_streets <- getbb("Wollongong Australia")%>%
+  opq()%>%
+  add_osm_feature(key = "highway", 
+                  value = c("residential", "living_street",
+                            "unclassified",
+                            "service", "footway")) %>%
+  osmdata_sf()
+
+# country <- getbb("Wollongong Australia") %>%
+#   opq() %>%
+#   add_osm_feature(key = "boundary",
+#                   value = c("aboriginal_lands", "administrative",
+#                             "historic", "marker",
+#                             "postal_code", "protected_area")) %>%
+#   osmdata_sf()
+# 
+# 
+# rivers <- getbb("Wollongong Australia")%>%
+#   opq()%>%
+#   add_osm_feature(key = "waterway", value = "river") %>%
+#   osmdata_sf()
+
+```
+
+# Plot OSM data
+
+This is pretty basic plotting for now. Some of the extra crap I did in powerpoint. 
+```{r}
+
+ggplot() +
+  geom_sf(data = streets$osm_lines,
+          inherit.aes = FALSE,
+          color = "#7fc0ff",
+          size = .4,
+          alpha = .8) +
+  geom_sf(data = small_streets$osm_lines,
+          inherit.aes = FALSE,
+          color = "#ffbe7f",
+          size = .4,
+          alpha = .6) +
+  # geom_sf(data = rivers$osm_lines,
+  #         inherit.aes= FALSE,
+  #         color = "steelblue",
+  #         size = .4,
+  #         alpha = .6)+
+  geom_sf(data = nsw_coast,
+          inherit.aes = FALSE,
+          color = "#f0831a",
+          size = .4,
+          alpha = .8)+
+  coord_sf(xlim = c(150.97893, 150.80727),
+           ylim = c(-34.35914, -34.49646),
+           expand = FALSE) +
+ theme_void()+
+  theme(
+    plot.background = element_rect(fill = "#282828"))
+
+
+#ggsave("map.png", width = 6, height = 6)
+```
+
+
+# Leaflet "plugin" for boundary box
+
+This leaflet function will throw alerts of the current boundary box of the viewer. Quick and dirty way of finding the boundary box
+The alert button will read out the current display box (best to remove width and height for that), where as the function below will allow the bbox as an R variable. 
+```{r}
+m <- leaflet(width = 500, height= 400) %>% 
+  addTiles()  %>% 
+  setView(lng = 150.8931, lat = -34.4278, zoom = 12) %>%
+  addEasyButton(easyButton(
+  states = list(
+    easyButtonState(
+      stateName="unfrozen-markers",
+      icon="ion-toggle",
+      title="Get Bounding box",
+      onClick = JS("
+                     function(btn, map) {
+                         alert(map.getBounds().getEast());
+                         alert(map.getBounds().getWest());
+                         alert(map.getBounds().getNorth());
+                         alert(map.getBounds().getSouth());
+                         }")
+          )
+            )
+            )
+            )
+
+m
+
+getBox <- function(m){
+  view <- m$x$setView
+  lat <- view[[1]][1]
+  lng <- view[[1]][2]
+  zoom <- view[[2]]
+  zoom_width <- 360 / 2^zoom
+  lng_width <- m$width / 256 * zoom_width
+  lat_height <- m$height / 256 * zoom_width
+  return(c(lng - lng_width/2, lng + lng_width/2, lat - lat_height/2, lat + lat_height/2))
+}
+getBox(m)
+
+```
