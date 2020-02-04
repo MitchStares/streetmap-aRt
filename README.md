@@ -2,4 +2,4 @@
 
 ### Wollongong
 
-![](wollongong_postermap.png)
+![](Wollongong_postermap.png)
